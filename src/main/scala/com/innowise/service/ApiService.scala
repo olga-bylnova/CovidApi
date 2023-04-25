@@ -1,7 +1,8 @@
 package com.innowise
 package service
 
-import dto.{CountryCaseInfo, CountryDto, CountryInfo, MinMaxCaseDto}
+import dto.{CountryCaseDto, CountryDto, CountryJsonReadDto, MinMaxCaseDto}
+import util.ApiConstant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
@@ -25,39 +26,51 @@ class ApiService {
   implicit val materializer: Materializer = Materializer(system)
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  private val objectMapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
-  private val casesByCountryRequest = "https://api.covid19api.com/country/%s/status/confirmed?from=%s&to=%s"
-  private val ALL_COUNTRIES_ROUTE = "https://api.covid19api.com/countries"
-  private var COUNTRIES_NAMES_LIST: List[CountryDto] = fetchAllCountries()
+  private val objectMapper: ObjectMapper = new ObjectMapper()
+    .registerModule(DefaultScalaModule)
+    .registerModule(new JavaTimeModule)
+  private val COUNTRIES_NAMES_LIST: List[CountryDto] = fetchAllCountries()
 
   def getMinMaxCasesByCountryPerTimePeriod(countries: List[String],
                                            startDate: String,
                                            endDate: String): MinMaxCaseDto = {
-    objectMapper.registerModule(new JavaTimeModule)
+    var minList = new ListBuffer[CountryCaseDto]
+    var maxList = new ListBuffer[CountryCaseDto]
 
-    val minList = new ListBuffer[CountryCaseInfo]
-    val maxList = new ListBuffer[CountryCaseInfo]
+    val startDay: LocalDateTime = LocalDate.parse(startDate).atStartOfDay()
+    val endDay: LocalDateTime = LocalDate.parse(endDate).atStartOfDay()
+
     countries.foreach(country => {
-      val startDay: LocalDateTime = LocalDate.parse(startDate).atStartOfDay()
-      val endDay: LocalDateTime = LocalDate.parse(endDate).atStartOfDay()
-
-      val uri = String.format(casesByCountryRequest, country, startDay, endDay)
+      val uri = String.format(ApiConstant.CASES_BY_COUNTRY_REQUEST_URI, country, startDay, endDay)
       val result = sendHttpRequest(uri)
 
-      val confirmedCasesByCountryDate = objectMapper.readValue(result, classOf[Array[CountryInfo]]).toList
+      val confirmedCasesByCountryDate = objectMapper.readValue(result, classOf[Array[CountryJsonReadDto]])
+        .toList
+        .filter(element => element.Province.equals(""))
 
-      val minCases = confirmedCasesByCountryDate.map(element => element.Cases).min
-      val maxCases = confirmedCasesByCountryDate.map(element => element.Cases).max
+      var min = Int.MaxValue
+      var max = Int.MinValue
 
-      val elementMin = confirmedCasesByCountryDate
-        .find(element => element.Cases == minCases)
-        .get
-      val elementMax = confirmedCasesByCountryDate
-        .find(element => element.Cases == maxCases)
-        .get
+      for (index <- 1 until confirmedCasesByCountryDate.length) {
+        val newCasesCount = confirmedCasesByCountryDate(index).Cases - confirmedCasesByCountryDate(index - 1).Cases
+        if (newCasesCount <= min) {
+          min = newCasesCount
+          minList += CountryCaseDto(confirmedCasesByCountryDate(index).Country,
+            newCasesCount,
+            confirmedCasesByCountryDate(index).Date)
+        }
+        if (newCasesCount >= max) {
+          max = newCasesCount
+          maxList += CountryCaseDto(confirmedCasesByCountryDate(index).Country,
+            newCasesCount,
+            confirmedCasesByCountryDate(index).Date)
+        }
+      }
+      val minCases = minList.map(element => element.Cases).min
+      val maxCases = maxList.map(element => element.Cases).max
 
-      minList += CountryCaseInfo(elementMin.Country, elementMin.Cases, elementMin.Date)
-      maxList += CountryCaseInfo(elementMax.Country, elementMax.Cases, elementMax.Date)
+      minList = minList.filter(element => element.Cases == minCases)
+      maxList = maxList.filter(element => element.Cases == maxCases)
     }
     )
     MinMaxCaseDto(minList.toList, maxList.toList)
@@ -83,7 +96,7 @@ class ApiService {
   }
 
   def fetchAllCountries(): List[CountryDto] = {
-    val countriesJson = sendHttpRequest(ALL_COUNTRIES_ROUTE)
+    val countriesJson = sendHttpRequest(ApiConstant.ALL_COUNTRIES_URI)
 
     objectMapper.readValue(countriesJson, classOf[Array[CountryDto]]).toList
   }

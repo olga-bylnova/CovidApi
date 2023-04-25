@@ -1,4 +1,4 @@
 package com.innowise
 package dto
 
-case class MinMaxCaseDto(minCases: List[CountryCaseInfo], maxCases: List[CountryCaseInfo] )
+case class MinMaxCaseDto(minCases: List[CountryCaseDto], maxCases: List[CountryCaseDto] )
