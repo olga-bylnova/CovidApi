@@ -19,16 +19,13 @@ class ApiController(apiService: ApiService) extends JsonSupport {
   def getRoute: Route = userRoutes
 
   private val userRoutes: Route =
-    pathPrefix("api" / "v1" / "covid" / "countries") {
+    pathPrefix("covid" / "countries") {
       path("period") {
         parameters("from", "to") { (from, to) =>
           post {
-            //complete(HttpEntity(ContentTypes.`application/json`, "hello post"))
             entity(as[List[String]]) { countries =>
-              //validate
+              //TODO validate
               val result = apiService.getMinMaxCasesByCountryPerTimePeriod(countries, from, to)
-              //val result = Await.result(resultFuture, Duration.Inf)
-             // complete(result)
              // val o1 = new CountryCaseInfo("asf", 2L, LocalDateTime.now())
               //val o2 = new CountryCaseInfo("asf", 2L, LocalDateTime.now())
              // val result = MinMaxCaseDto(List(o1, o2), List(o1, o2))
@@ -37,6 +34,7 @@ class ApiController(apiService: ApiService) extends JsonSupport {
           }
         }
       } ~
+      //TODO more routes
         path("aloha") {
           get {
             complete(HttpEntity(ContentTypes.`application/json`, "hello bitch"))

@@ -2,17 +2,17 @@ package com.innowise
 package util
 
 import dto.{CountryCaseInfo, CountryDto, MinMaxCaseDto}
-
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsValue, RootJsonFormat, RootJsonWriter}
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalDateTime}
 
 trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val countryFormat: RootJsonFormat[CountryDto] = jsonFormat3(CountryDto.apply)
-  implicit val minMaxCaseFormat: RootJsonFormat[MinMaxCaseDto] = jsonFormat2(MinMaxCaseDto.apply)
+
   implicit val countryCaseInfoFormat: RootJsonFormat[CountryCaseInfo] = jsonFormat3(CountryCaseInfo.apply)
+  implicit val minMaxCaseFormat: RootJsonFormat[MinMaxCaseDto] = jsonFormat2(MinMaxCaseDto.apply)
 
   implicit object LocalDateTimeJsonFormat extends RootJsonFormat[LocalDateTime] {
     def write(instant: LocalDateTime): JsValue = JsString(DateTimeFormatter.ISO_DATE_TIME.format(instant))
