@@ -1,7 +1,7 @@
 package com.innowise
 package service
 
-import dto.{CountryCaseInfo, CountryInfo, MinMaxCaseDto}
+import dto.{CountryCaseInfo, CountryDto, CountryInfo, MinMaxCaseDto}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
@@ -24,9 +24,11 @@ class ApiService {
   implicit val system: ActorSystem = ActorSystem()
   implicit val materializer: Materializer = Materializer(system)
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
-  
-  val objectMapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
-  val casesByCountryRequest = "https://api.covid19api.com/country/%s/status/confirmed?from=%s&to=%s"
+
+  private val objectMapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
+  private val casesByCountryRequest = "https://api.covid19api.com/country/%s/status/confirmed?from=%s&to=%s"
+  private val ALL_COUNTRIES_ROUTE = "https://api.covid19api.com/countries"
+  private var COUNTRIES_NAMES_LIST: List[CountryDto] = fetchAllCountries()
 
   def getMinMaxCasesByCountryPerTimePeriod(countries: List[String],
                                            startDate: String,
@@ -74,6 +76,16 @@ class ApiService {
       }
     val futureJson = result.map(json => json.toString)
     Await.result(futureJson, Duration.Inf)
+  }
+
+  def checkCountrySlug(slug: String): Boolean = {
+    COUNTRIES_NAMES_LIST.exists(element => element.Slug.equals(slug))
+  }
+
+  def fetchAllCountries(): List[CountryDto] = {
+    val countriesJson = sendHttpRequest(ALL_COUNTRIES_ROUTE)
+
+    objectMapper.readValue(countriesJson, classOf[Array[CountryDto]]).toList
   }
 
 }
